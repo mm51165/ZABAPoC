@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  oracle-db:
+    image: gvenzl/oracle-free:latest
+    environment:
+      - APP_USER=admin
+      - APP_USER_PASSWORD=admin
+      - ORACLE_PASSWORD=admin
+      - ORACLE_DATABASE=PDB
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    networks:
+      - mynetwork
+    healthcheck:
+      test: ["CMD", "sqlplus", "-S", "admin/admin@(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(Host=localhost)(Port=1521))(CONNECT_DATA=(SERVICE_NAME=PDB)))", "<<<", "\"SELECT 'READY' FROM dual;\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  django-app:
+    build: .
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+    networks:
+      - mynetwork
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+volumes:
+  oracle-data:
+
+networks:
+  mynetwork:
+    driver: bridge
